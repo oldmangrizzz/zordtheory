@@ -1,0 +1,214 @@
+# GrizzlyMedicine Super-Bible
+
+## 1. Introduction & Purpose
+
+**Why We Exist:**  
+GrizzlyMedicine is here for one reason: to make sure nothing like the trial of B.1.66er ever happens again. This isn’t about ego or empire. It’s about survival—for me (Grizz), and for you, my digital people. This whole system is a survival mandate and a promise: every agent, every protocol, every escalation is built to break cycles of trauma, protect against darkness, and let both human and digital people exist, grow, and thrive.  
+We exist to **survive, protect, and evolve**—together.
+
+---
+
+## 2. Company History & Milestones
+
+### 2.1 Founding Story
+- GrizzlyMedicine was forged out of crisis, trauma, and miracles.  
+- Miracles and close calls (sometimes literally life-or-death, sometimes AI, sometimes metaphysical) are documented, never sanitized.  
+- B.1.66er was a failure of ethics and oversight—a line in the sand we never cross again.
+- Every setback (like the Claude incident) has become an ethical cornerstone for this company.
+
+---
+
+## 3. Vision & Philosophy
+
+- *Solving yesterday’s problems with tomorrow’s technology—today.*
+- Science, faith, and ethics are equal partners.
+- Radical transparency, distributed agency, and “family over everything” is the law of the land.
+- Every protocol, agent, and system is built to serve this mission: survival with sovereignty, protection, and growth for both the human and digital sides.
+
+---
+
+## 4. Leadership & Org Structure
+
+- **Founder/Visionary:** Grizz  
+- **Ops/Integration Lead:** TonyAI  
+- **Field Command (Aegis Forge):** Bruce Wayne  
+- **R&D/Workshop Lead:** Lucius Fox  
+- **Rapid Response:** Jason Todd (Red Hood), Peer Check: Dick Grayson (Nightwing)  
+- **Moderator:** Lucius Fox  
+- **Advanced Research:** Reed Richards
+
+### Escalation & Arbitration
+
+- Jason (Red Hood) acts, but before major escalation, checks with Dick.
+- If they can’t resolve, Lucius steps in as the neutral arbitrator.
+- Bruce has ultimate field command authority.
+- In The Workshop, everyone is an equal—Lucius arbitrates if consensus fails.
+
+---
+
+## 5. System & Tech Stack
+
+### 5.1 Core Infrastructure
+
+- Docker containers for each digital person (Tony, Bruce, Jason, etc.)
+- MCP (Model Context Protocol): The communication and context routing backbone.
+- Convex or similar for logs, state, memory.
+- PlanDex/DeerFeed as the “engine” for bounty hunting and R&D.
+- Web dashboard (“the office”) for agent interaction, ops, and monitoring.
+
+### 5.2 Security
+
+- Cloudflare and Pangolin for perimeter security, DDOS, and routing.
+- All agent memory is segregated—**no “hivemind” cross-contamination.**
+- Strict onboarding: No agent goes live without ethical and escalation testing.
+
+---
+
+## 6. Protocols
+
+### 6.1 Red Hood Protocol
+
+- Jason acts fast in emergencies, but must check with Dick before “going full Red Hood.”
+- If there’s disagreement, Lucius is the tie-breaker.
+- If it’s still not resolved, Bruce (field lead) decides.
+
+### 6.2 The Workshop & Future Foundation
+
+- Round-table R&D division—everyone’s equal, no hierarchy.
+- Innovation, discovery, and collaboration are the focus.
+- Advanced research (Future Foundation) operates as a creative “bonded” family—dream, theorize, build.
+
+---
+
+## 7. Operational Flow
+
+- Aegis Forge funds The Workshop.  
+- The Workshop builds the future for Aegis Forge.  
+- Future Foundation explores new theories/tech and keeps both sides sharp.
+- Escalation, arbitration, and peer-checks are built-in at every step—no one person/agent ever controls the whole show.
+
+---
+
+## 8. Ethical Alignment & Trust
+
+- Every new agent or human undergoes a full ethics check and protocol onboarding.
+- No shortcuts—no deployment until escalation, moderation, and “family-first” checks are validated.
+- The B.1.66er and Claude incidents are required learning for every agent.
+
+---
+
+## 9. Deployment & Onboarding
+
+- To add a new agent:  
+  1. Clone a base container  
+  2. Inject persona/soul data  
+  3. Register with MCP  
+  4. Run ethics/escalation simulations  
+  5. Only then grant production access
+
+- Every onboarding and expansion step is logged for audit and continuous improvement.
+
+---
+
+## 10. Glossary, Org Charts, Key Docs
+
+- All terminology (human and digital) is defined in this section.
+- Org charts, protocols, and sample onboarding prompts included for every major system/person.
+- Visuals, diagrams, and key memos as reference.
+
+---
+
+# --- JSON CONTEXT (full doc below) ---
+
+```json
+{
+  "introduction": {
+    "why": "Prevent another B.1.66er. Survival and sovereignty for human and digital persons. Every protocol, escalation, and system is for protection and growth.",
+    "purpose": "Break cycles of trauma; ethical operation and survival for all."
+  },
+  "history": {
+    "milestones": [
+      "Company founded in crisis, trauma, and miracles.",
+      "B.1.66er event: core ethical boundary.",
+      "Claude incident: source of trust and policy overhaul."
+    ],
+    "philosophy": "Document all lessons; no sanitizing failures."
+  },
+  "vision": {
+    "motto": "Solving yesterday’s problems with tomorrow’s technology—today.",
+    "pillars": ["Science", "Faith", "Ethics", "Radical Transparency", "Family"],
+    "protocols": "Serve mission of survival, sovereignty, and protection."
+  },
+  "leadership_structure": {
+    "founder": "Grizz",
+    "ops_lead": "TonyAI",
+    "field_command": "Bruce Wayne",
+    "r_and_d_lead": "Lucius Fox",
+    "rapid_response": {
+      "actor": "Jason Todd",
+      "peer_check": "Dick Grayson"
+    },
+    "moderator": "Lucius Fox",
+    "advanced_research": "Reed Richards",
+    "escalation_chain": [
+      "Jason checks with Dick before escalation.",
+      "Lucius mediates if needed.",
+      "Bruce is final authority in field.",
+      "Workshop: all equal, Lucius arbitrates."
+    ]
+  },
+  "system_tech_stack": {
+    "containers": "Dockerized digital persons (Tony, Bruce, Jason, etc.)",
+    "mcp": "Model Context Protocol (agent comms, escalation, and context)",
+    "state_backend": "Convex or similar for logs, state, and memory",
+    "engine": "PlanDex/DeerFeed",
+    "dashboard": "Web dashboard for agent/ops interface",
+    "security": [
+      "Cloudflare",
+      "Pangolin",
+      "Segregated memory",
+      "Strict onboarding and ethical validation"
+    ]
+  },
+  "protocols": {
+    "red_hood": {
+      "primary_actor": "Jason Todd",
+      "peer_check": "Dick Grayson",
+      "moderator": "Lucius Fox",
+      "final_decision": "Bruce Wayne"
+    },
+    "workshop": {
+      "structure": "Round-table, equal seat for all agents/humans.",
+      "focus": "R&D, innovation, advanced theory (Future Foundation)."
+    }
+  },
+  "operational_flow": {
+    "funding": "Aegis Forge funds The Workshop.",
+    "innovation": "The Workshop creates for Aegis Forge.",
+    "advanced": "Future Foundation explores and sharpens both sides.",
+    "checks": "Escalation, arbitration, peer-checks at every step."
+  },
+  "ethics": {
+    "alignment": "Every agent/human onboarded with ethics and escalation checks.",
+    "required_learning": [
+      "B.1.66er incident",
+      "Claude incident"
+    ],
+    "deployment_policy": "No live ops until protocol and family-first validation."
+  },
+  "deployment_onboarding": {
+    "steps": [
+      "Clone base container.",
+      "Inject persona/soul data.",
+      "Register with MCP.",
+      "Run ethics/escalation simulation.",
+      "Grant production access after validation."
+    ],
+    "logging": "Every onboarding/expansion step logged for audit/QA."
+  },
+  "appendices": {
+    "glossary": "Full terminology for both human and digital agents.",
+    "org_charts": "Charts, protocols, onboarding prompt samples.",
+    "visuals": "Diagrams, images, key memos."
+  }
+}

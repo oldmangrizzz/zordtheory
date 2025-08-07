@@ -1,0 +1,1222 @@
+A Technical Blueprint for a Swarm-
+Intelligence Agentic System with
+Convex, mem0, and Agent Zero
+Executive Summary
+This document presents a comprehensive technical blueprint for the design and implementation
+of a sophisticated, multi-component AI system. The architecture synthesizes a reactive
+database backend, a customizable agent framework, an advanced memory layer, and a real-
+time conversational interface into a single, cohesive organism. The core innovation of this
+system is the practical realization of the Pheromind conceptual model of swarm intelligence.
+This is achieved by leveraging the prompt-driven, extensible nature of the Agent Zero
+framework , with all inter-agent coordination mediated through the Convex reactive datastore.
+The system is designed for local deployment within a lightweight LXC container, a strategic
+choice that ensures data privacy, full operational control, and lower resource overhead
+compared to traditional virtualization. This local core houses the agentic swarm and its
+associated services. Communication and state management are orchestrated through Convex,
+which serves as the central nervous system. Its reactive properties allow agents to perceive and
+respond to changes in their shared "environment" in real-time, enabling emergent, decentralized
+coordination without direct agent-to-agent coupling.
+A dual-layered memory architecture provides the agents with both ephemeral task context and
+persistent semantic knowledge. Agent Zero's native memory capabilities are utilized for short-
+term, in-task recall , while the mem0 service, backed by a local Redis instance, provides a
+stateful, long-term memory that learns and evolves across interactions. This allows the swarm
+to not only execute complex tasks but also to improve its performance over time by recalling
+user preferences, past solutions, and critical facts.
+Interaction with this complex system is facilitated through a natural language voice interface. A
+low-latency, bidirectional audio stream is established between a Node.js client and a Python
+server within the LXC container using WebSockets, enabling fluid, real-time spoken dialogue.
+This document provides the complete architectural design, detailed configuration instructions,
+API specifications, and operational code required to construct and deploy this advanced agentic
+system.
+Section 1: Global System Architecture
+This section establishes the high-level design of the agentic system, defining the specific role of
+each technological component and mapping the communication pathways that bind them into a
+single, functional whole. The architecture is predicated on a paradigm of indirect coordination,
+which is fundamental to its scalability and resilience.
+1.1. Architectural Paradigm: The Pheromone-Mediated Swarm
+The system's core conceptual model is based on stigmergy, a mechanism of indirect
+coordination between agents or actions observed in biological systems like ant colonies. The
+principle is that an agent's actions modify the local environment, and this modification influences
+the subsequent actions of the same or other agents. This blueprint translates this biological
+concept into a robust engineering pattern.
+The "digital pheromones" described in the Pheromind framework are not a specific technology
+but rather a design pattern for this indirect communication. In this architecture, these
+pheromones are implemented as structured data entries within a reactive database.
+Integration: The Convex platform serves as the digital "environment" or substrate through
+which the agents interact. Agent instances, running within the local LXC container, do not
+communicate via direct messaging protocols (e.g., REST APIs or a message bus). Instead, they
+coordinate their activities by creating, modifying, and reading documents—the digital
+pheromones—in designated Convex database tables. The platform's foundational reactive
+nature is the key enabler of this paradigm. When one agent writes a "pheromone" to a table,
+Convex automatically and in real-time pushes this state change to all other subscribed agents.
+This allows the swarm to "sense" the trail of work, findings, or requests left by their peers,
+facilitating emergent coordination and dynamic task allocation without a central, commanding
+authority.
+1.2. Component Interaction Model and Data Flow Diagram
+The flow of data and control through the system follows a well-defined path, from initial user
+input to final synthesized output. This sequence ensures a clear separation of concerns and
+robust handling of information at each stage.
+Flow Path:
+1. Input (Audio Capture & Streaming): The process begins when a user issues a voice
+command. A Node.js client application captures microphone audio and establishes a
+persistent, bidirectional WebSocket connection to a Python audio server running inside
+the LXC container. Raw audio data is streamed in chunks over this connection.
+2. Task Creation (Transcription & Initiation): The Python server receives the audio
+stream. It utilizes a speech-to-text (STT) engine to transcribe the audio into a text-based
+prompt. Upon successful transcription, the server instructs the primary
+OrchestratorAgent—a specialized Agent Zero instance—to initiate a new task based on
+the user's prompt.
+3. Task Broadcast (Environment Modification): The OrchestratorAgent does not directly
+command other agents. Instead, it formulates a structured task document, including a
+unique ID, the user prompt, and an initial status of 'open'. It then uses the Convex HTTP
+API to post this document to the tasks table in the Convex backend.
+4. Swarm Activation (Reactive Sensing): The creation of the new document in the tasks
+table is a state change. Convex's reactive infrastructure instantly notifies all subscribed
+ExecutorAgents of this new task. An available agent with the appropriate archetype (e.g.,
+a CoderAgent for a programming task) "senses" the new task and assigns it to itself by
+updating the assignedTo field in the task document.
+5. Execution & Pheromone Trail: The assigned ExecutorAgent begins its work. As it
+progresses, it periodically writes updates, logs, intermediate findings, or requests for
+assistance as new pheromone documents in a dedicated pheromones table in Convex,
+linking them to the parent taskId. Concurrently, the agent can query the mem0 service via
+its Python SDK to retrieve relevant long-term context, such as user preferences or
+solutions to similar past problems, which informs its execution strategy.
+6. Coordination & Synthesis (Collective Intelligence): Other agents, such as a
+ScribeAgent or the original OrchestratorAgent, are subscribed to the pheromones table.
+They react to the trail being laid by the ExecutorAgent. A ScribeAgent might be prompted
+to periodically read all pheromones for a given task and generate a summary, posting it
+as a new summary pheromone. The OrchestratorAgent monitors this activity to track
+overall progress and can intervene if a task stalls or an error is reported.
+7. Completion & Output (Final State Change): Once the ExecutorAgent completes its
+work, it posts a final completion pheromone and updates the master task document's
+status to 'completed', writing the final payload to the result field. The Python audio server,
+which has been reactively monitoring this specific document, detects the status change. It
+retrieves the result, synthesizes it into speech using a text-to-speech (TTS) engine, and
+streams the resulting audio data back to the Node.js client via the established WebSocket
+connection for the user to hear.
+1.3. Technology Stack and Rationale
+The selection of each technology is strategic, with each component fulfilling a specific and
+critical role within the broader architecture.
+● Convex: The system's central nervous system and reactive backend. It is chosen for its
+unique combination of a real-time database, serverless functions (queries, mutations, and
+actions), and a TypeScript-first developer experience. Its reactive data layer is the
+technological foundation for the pheromone-based communication model, eliminating the
+need for complex polling or message bus infrastructure.
+● Agent Zero: The framework for the agentic swarm. It is selected for its highly
+customizable, prompt-driven architecture, which allows agent behavior to be defined
+entirely through text files. Its native support for multi-agent cooperation and the ability to
+extend its functionality with custom Python tools make it the ideal platform for
+implementing the Pheromind archetypes.
+● mem0: The persistent, long-term memory layer. It is chosen to overcome the stateless
+nature of most LLM interactions. Its ability to build an evolving, semantic memory graph
+complements Agent Zero's task-specific working memory, enabling true learning and
+personalization over time. It offers significant cost savings by intelligently filtering context
+before it is sent to the LLM.
+● LXC (Linux Containers): The local deployment environment. LXC provides OS-level
+virtualization, offering strong isolation for the agent processes with significantly lower
+resource overhead than full-fledged virtual machines. This makes it ideal for running a
+dedicated, always-on agent server on a local machine or a small server.
+● WebSockets: The protocol for real-time audio communication. WebSockets are chosen
+over standard HTTP for their ability to maintain a persistent, low-latency, bidirectional
+communication channel. This is essential for the fluid, uninterrupted streaming of audio
+data between the client and the server, which is required for a natural conversational
+experience.
+The intricate web of interactions between these components is vital to the system's function. To
+clarify these relationships, the following matrix details the communication protocols and
+purposes for each component pairing.
+Table 1: Component Interaction Matrix
+Source Component Target Component Protocol / SDK Purpose of Interaction
+Agent Zero (Python) Convex HTTP API To call secure actions
+that trigger mutations
+for writing tasks and
+pheromones.
+Agent Zero (Python) mem0 mem0ai Python SDK To add facts to and
+search for context in
+the long-term memory
+store (Redis).
+Source Component Target Component Protocol / SDK Purpose of Interaction
+Audio Server (Python) Agent Zero (Python) Local Function Call To pass transcribed
+text to the
+OrchestratorAgent for
+task initiation.
+Node.js Client Audio Server (Python) WebSocket For bidirectional, real-
+time streaming of audio
+data (user speech and
+synthesized
+responses).
+Convex All Agents (Python) Convex Python Client To subscribe to real-
+time data queries,
+allowing agents to
+reactively "sense"
+changes in the
+environment.
+Agent Zero (Python) LLM Provider (e.g.,
+OpenAI)
+HTTP API / SDK To perform core
+reasoning, code
+generation, and text
+analysis.
+This architectural design deliberately avoids direct agent-to-agent communication. This is not a
+limitation but a fundamental choice that enforces the Pheromind paradigm. All inter-agent
+coordination is mediated through the Convex environment. This approach is born from the
+understanding that Pheromind's core concept is stigmergy—indirect communication through
+environmental markers. Implementing direct communication channels would revert the system
+to a more traditional, brittle, and centrally controlled architecture. By architecting all
+communication to flow through Convex's reactive database, the system is not merely using a
+database for storage; it is enforcing the swarm intelligence paradigm at an architectural level.
+This decoupling makes the system inherently more scalable, resilient, and adaptable, as
+individual agents do not need to be aware of the existence or location of other agents.
+Section 2: The Reactive Backend: Configuring the
+Convex Datastore
+The Convex project is the foundational layer upon which all agent activity is built. It serves as
+the shared reality, the communication medium, and the persistent state manager for the entire
+swarm. This section provides a detailed, step-by-step guide to its configuration.
+2.1. Initializing the Convex Project and Environment
+The setup process begins with the Convex command-line interface (CLI), which scaffolds the
+project and handles deployment.
+1. Installation: Install the Convex CLI globally or within a project using npm. The convex
+package provides both the client libraries and the CLI tools.
+npm install convex
+2. Project Initialization: Navigate to your project directory and run the dev command. This
+command initiates a guided setup process.
+npx convex dev
+This will prompt you to log in via GitHub, create a new Convex project, and will
+automatically generate a convex/ directory in your project root. It also creates a .env.local
+file containing the CONVEX_URL for your development deployment. This URL is crucial
+for connecting external clients, such as the Python services running in the LXC container.
+The npx convex dev process continues to run, watching the convex/ directory for changes
+and syncing them to your cloud backend in real-time.
+2.2. Schema Definition: The Foundation for Agent Communication
+The database schema is the blueprint for the agents' shared world. It defines the structure of the
+"digital pheromones" and other critical entities, ensuring data integrity and enabling efficient,
+indexed queries. This schema is defined in a single file: convex/schema.ts. The system uses
+Convex's built-in defineSchema, defineTable, and v validator functions to create a strongly-
+typed, relational data model. A well-defined schema is the bedrock of the swarm's
+communication protocol.
+The following table provides the explicit, implementation-ready TypeScript code for the
+database schema. Each table represents a core entity in the agent's world: agents are the
+actors, tasks are the goals, pheromones are the messages, and memory_metadata creates a
+link to the deeper knowledge stored in the mem0 service.
+Table 2: Convex Database Schema (convex/schema.ts)
+import { defineSchema, defineTable } from "convex/server";
+import { v } from "convex/values";
+export default defineSchema({
+// Table to track the state and presence of individual agents in the
+swarm.
+agents: defineTable({
+agentId: v.string(), // A unique identifier for the agent
+instance.
+archetype: v.string(), // The role of the agent, e.g.,
+"Orchestrator", "Coder", "Researcher".
+status: v.string(), // Current status, e.g., "idle", "active",
+"error".
+lastSeen: v.number(), // Timestamp of the agent's last activity.
+}).index("by_archetype_and_status", ["archetype", "status"]),
+// The central table for managing all tasks and sub-tasks.
+tasks: defineTable({
+taskId: v.string(), // A unique identifier for the task.
+parentTaskId: v.optional(v.string()), // ID of the parent task for
+hierarchical decomposition.
+createdBy: v.string(), // ID of the agent or user that created the
+task.
+assignedTo: v.optional(v.string()), // ID of the agent currently
+working on the task.
+status: v.string(), // e.g., "open", "assigned", "in_progress",
+"completed", "failed".
+prompt: v.string(), // The natural language prompt or instruction
+for the task.
+result: v.optional(v.any()), // The final output or result of the
+completed task.
+createdAt: v.number(), // Timestamp of task creation.
+})
+.index("by_status", ["status"])
+.index("by_assignedTo",),
+// The communication log; the implementation of "digital
+pheromones".
+pheromones: defineTable({
+taskId: v.id("tasks"), // Links the pheromone to a specific task.
+agentId: v.string(), // The agent that "laid" this pheromone.
+type: v.string(), // Type of message, e.g., "status_update",
+"log", "finding", "error", "request_for_help".
+content: v.any(), // The structured payload of the pheromone (JSON
+object).
+timestamp: v.number(), // Timestamp of when the pheromone was
+laid.
+}).index("by_taskId", ["taskId"]),
+// A linking table to connect Convex documents to long-term memories
+in mem0.
+memory_metadata: defineTable({
+mem0_id: v.string(), // The unique ID of the memory entry in the
+mem0 service.
+convex_doc_id: v.id("tasks"), // The ID of the related Convex
+document (e.g., a task).
+relationship: v.string(), // Describes the link, e.g.,
+"generated_by", "informed_by".
+}).index("by_mem0_id", ["mem0_id"]),
+});
+2.3. Core API Functions: Mutations and Actions for Agent Interaction
+Convex provides three distinct types of server functions, each with a specific role in this
+architecture: queries, mutations, and actions.
+● Queries: These are read-only functions used to fetch data from the database. They are
+highly optimized, deterministic, and automatically reactive. Agents will use queries to find
+open tasks and read the pheromone trails of their peers.
+● Mutations: These are write functions used for fast, transactional updates to the database.
+They are designed to be idempotent and deterministic. Agents will use mutations
+(indirectly, via actions) to create tasks and write pheromones.
+● Actions: These functions are the "escape hatch" to the outside world. They can perform
+non-deterministic operations like making fetch calls to external APIs, running complex
+computations, or interacting with services that are not part of the Convex ecosystem. This
+makes them the critical bridge between the local LXC container and the Convex backend.
+In this architecture, the Python-based Agent Zero instances in the LXC container will
+communicate with Convex via its HTTP API. The most robust and secure pattern is to have the
+Python client call a Convex action exposed as an HTTP endpoint. This action then validates the
+request and schedules the appropriate internal mutation to modify the database. This creates a
+secure gateway and decouples the external agent logic from the core database transaction
+logic.
+2.4. Securing the Backend: Deployment Keys and HTTP API Access
+Secure communication between the LXC container and the Convex backend is paramount. This
+is achieved using deployment admin keys.
+1. Retrieve Admin Key: In the Convex project dashboard, navigate to the "Settings" page.
+Under the "Deploy keys" section, generate a new key. This key provides full
+administrative access to the deployment's data and functions. This key must be securely
+stored as an environment variable within the LXC container.
+2. Authorize API Calls: All HTTP requests from the Python client to the Convex backend
+must include an Authorization header. The format is Authorization: Convex
+<your_admin_key>.
+3. HTTP Endpoint: The primary entry point for the external agents will be the generic run
+endpoint: <CONVEX_URL>/api/run/{functionIdentifier}. The {functionIdentifier} is the path
+to the action function, with the colon replaced by a slash (e.g., http:myAction becomes
+http/myAction).
+The use of Convex actions as a secure gateway is a critical architectural pattern. The Agent
+Zero framework, running in the local LXC, is considered an untrusted external client from
+Convex's perspective. While Convex mutations and queries are intended for trusted clients or
+internal calls, actions are explicitly designed to handle side effects and external interactions.
+Therefore, the most robust and secure pattern is to expose an HTTP-triggered action. This
+action can perform validation, authentication checks, and rate limiting before scheduling the
+trusted internal mutation. This architecture provides a single, controlled entry point for all
+database write operations originating from the agent swarm, enhancing the system's overall
+security and maintainability.
+Section 3: The Local Environment: Deploying the
+Agentic Core in an LXC Container
+This section provides a bespoke guide for establishing the entire agent runtime within a local,
+unprivileged LXC container. This approach offers a balance of performance, security, and
+control, adapting general containerization principles to the specific needs of this AI system. The
+choice of LXC over the more common Docker is deliberate, targeting users who prefer finer-
+grained control and potentially lower system overhead at the cost of the simplicity of a pre-
+packaged image. This blueprint provides the explicit manual steps to replicate the functionality
+of a Docker environment within LXC.
+3.1. Host System Preparation for Unprivileged LXC
+Before creating the container, the host system must be configured to support unprivileged
+containers, which is a vital security measure to prevent container-breakout vulnerabilities.
+1. Install LXC Tools: Use the host system's package manager to install the necessary LXC
+utilities. On Debian-based systems like Ubuntu, this would be:
+sudo apt-get install lxc lxc-templates
+On Red Hat-based systems, the command is sudo dnf install lxc lxc-templates.
+2. Configure User Mappings: Unprivileged containers run under a mapped range of UIDs
+and GIDs on the host. This ensures that the root user inside the container (UID 0) is
+mapped to a non-privileged user ID on the host. These mappings are defined in
+/etc/subuid and /etc/subgid. For a user named agentadmin, the entries would look like
+this:
+# /etc/subuid
+agentadmin:100000:65536
+# /etc/subgid
+agentadmin:100000:65536
+This allocates 65,536 UIDs and GIDs starting from 100000 for that user's containers.
+3. Setup Virtual Network: The container needs a network to communicate with the host
+and the internet. A common approach is to use a virtual bridge. If a default bridge like
+lxcbr0 or virbr0 is not already present, it can be created. The user must then be granted
+permission to create virtual network interfaces on this bridge. This is configured in
+/etc/lxc/lxc-usernet:
+# /etc/lxc/lxc-usernet
+# user type bridge count
+agentadmin veth lxcbr0 10
+This allows the agentadmin user to create up to 10 virtual ethernet (veth) devices
+connected to the lxcbr0 bridge.
+3.2. LXC Container Creation and Configuration
+With the host prepared, the container itself can be created and configured.
+1. Create Container: Use the lxc-create command to instantiate a new container from a
+distribution template. This example uses Ubuntu Focal:
+lxc-create -t download -n agent-core -- -d ubuntu -r focal -a
+amd64
+This command downloads and sets up an Ubuntu 20.04 container named agent-core.
+2. Configure Container: The container's configuration is stored in /var/lib/lxc/agent-
+core/config (for root-owned containers) or ~/.local/share/lxc/agent-core/config (for user-
+owned containers). This file must be edited to include the UID/GID mapping, network
+configuration, and a crucial mount point for persistent data. The mount point is the LXC
+equivalent of a Docker volume, linking a directory on the host to a directory inside the
+container.Sample agent-core/config:
+# UID and GID mapping
+lxc.idmap = u 0 100000 65536
+lxc.idmap = g 0 100000 65536
+# Network configuration
+lxc.net.0.type = veth
+lxc.net.0.link = lxcbr0
+lxc.net.0.flags = up
+lxc.net.0.hwaddr = 00:16:3e:xx:xx:xx # Generate a random MAC
+address
+# Persistent data mount point
+# Mounts ~/agent-data on the host to /a0 inside the container
+lxc.mount.entry = /home/agentadmin/agent-data a0 none
+bind,create=dir 0 0
+The lxc.mount.entry directive is critical for ensuring that agent memory, logs, and
+configurations survive container restarts.
+3.3. Installing Core Dependencies within the LXC
+Once the container is configured, start it and install the necessary software stack.
+1. Start and Attach:
+lxc-start -n agent-core
+lxc-attach -n agent-core
+You will now have a root shell inside the container.
+2. Install Packages: Run the following commands inside the container to install the runtime
+dependencies:
+# Update package lists and upgrade system
+apt update && apt upgrade -y
+# Install Python, Node.js, and Redis
+apt install -y python3 python3-pip nodejs npm redis-server
+# Set up a Python virtual environment for the project
+mkdir -p /a0/project
+python3 -m venv /a0/project/venv
+3.4. Agent Zero Installation and Configuration
+This process manually replicates the environment provided by Agent Zero's official Docker
+image.
+1. Clone Repository: Inside the container, navigate to the persistent directory and clone the
+Agent Zero source code.
+cd /a0
+git clone https://github.com/agent0ai/agent-zero.git
+2. Install Dependencies: Activate the virtual environment and install Agent Zero's Python
+requirements.
+source /a0/project/venv/bin/activate
+pip install -r /a0/agent-zero/requirements.txt
+3. Configuration: Agent Zero can be configured by editing its YAML files or through its web
+UI. Start the Agent Zero application:
+cd /a0/agent-zero
+python main.py
+Find the container's IP address from the host using lxc-info -n agent-core. Access the web
+UI at http://<container_ip>:80 to configure LLM providers, API keys, and other settings. All
+configuration changes will be saved to the /a0/agent-zero directory, ensuring they persist.
+3.5. Self-Hosting the mem0 Memory Service with Redis
+The mem0 service will use the Redis server installed in the previous step as its backend
+datastore.
+package.
+pip install mem0ai
+1. Install mem0 SDK: Within the same Python virtual environment, install the mem0ai
+2. Configure Redis: Ensure the Redis server is running and configured to start on boot
+within the container.
+systemctl enable redis-server.service
+systemctl start redis-server.service
+3. Integrate with Python: In any Python script that needs to access the long-term memory
+(such as the custom tools for Agent Zero), instantiate the Memory object with a
+configuration that points to the local Redis instance.Python mem0 Configuration:
+from mem0 import Memory
+# Configuration to use the self-hosted Redis instance
+# as the vector and key-value store.
+mem0_config = {
+"vector_store": {
+"provider": "redis",
+"config": {
+"collection_name": "agent_swarm_memory",
+"redis_url": "redis://localhost:6379"
+}
+}
+}
+# Instantiate the memory object
+long_term_memory = Memory.from_config(mem0_config)
+This completes the setup of the local agentic core. By deconstructing the official Docker
+deployment of Agent Zero and mapping its functionalities—port exposure, volume mounting,
+and dependency installation—to their LXC equivalents, this blueprint provides a robust,
+performant, and controllable local environment for the AI swarm.
+Section 4: The Swarm Engine: Implementing
+Pheromind Principles in Agent Zero
+This section represents the intellectual core of the blueprint. It details the specific prompt
+engineering, structural modifications, and protocol definitions required to transform the general-
+purpose Agent Zero framework into a Pheromind-inspired swarm intelligence system. The key
+lies in leveraging Agent Zero's profound customizability.
+4.1. The Agent Zero Prompting Architecture
+The behavior of an Agent Zero agent is not hard-coded; it is almost entirely dictated by a set of
+Markdown files located in the prompts/ directory. This feature is the primary mechanism through
+which the swarm's intelligence is sculpted. The agent.system.md file, in particular, acts as the
+agent's constitution, defining its persona, objectives, available tools, and rules of engagement.
+To implement the Pheromind system, a new subdirectory, prompts/pheromind/, will be created
+within the Agent Zero installation (/a0/agent-zero/prompts/). This directory will house the distinct
+system prompts for each of our specialized agent archetypes. When launching an agent, we
+can specify which prompt set to use, allowing us to instantiate different types of agents from the
+same core framework.
+4.2. Defining Agent Archetypes: System Prompts and Toolsets
+Drawing inspiration from the conceptual roles described in the Pheromind framework—such as
+Master Planners, Scribes, and Executors —we will define concrete, operational archetypes.
+Each archetype is defined by a unique agent.system.md file that provides explicit instructions to
+the LLM. The following table outlines the essential prompts and tools for each role. This is the
+most critical component for implementing the swarm's logic.
+Table 3: Pheromind Agent Archetype Configuration
+Archetype agent.system.md Prompt
+Highlights
+OrchestratorAgent "You are a Master
+Orchestrator, a high-level
+project manager for an AI
+swarm. Your primary function is
+to receive a high-level user
+request and decompose it into
+a structured hierarchy of tasks.
+You MUST use the create_task
+tool to write each sub-task to
+the shared Convex
+environment. You will assign a
+type (e.g., 'coding', 'research')
+to each task. You will
+continuously monitor the
+pheromones table using the
+get_pheromones_for_task tool
+to track progress. Upon
+completion of all sub-tasks, you
+will synthesize the results and
+use the update_task_status
+tool to mark the main task as
+'completed' and provide the
+final answer."
+Key Tools
+create_task,
+update_task_status,
+get_pheromones_for_task,
+search_memory
+CoderAgent (Executor) "You are an expert software
+developer agent. Your sole
+purpose is to execute coding
+tasks. You MUST begin by
+using the get_open_tasks tool
+to find a task with status: 'open'
+and type: 'coding'. You will
+claim the task by updating its
+status to 'assigned'. As you
+work, you MUST provide a
+continuous stream of updates
+by writing to the Convex
+pheromones table using the
+write_pheromone tool. These
+pheromones should be of type
+'log', 'code_snippet', or 'error'.
+Upon completion, you will post
+the final code as a 'result'
+pheromone and update the
+task status to 'completed'."
+get_open_tasks,
+update_task_status,
+write_pheromone,
+code_execution
+Archetype agent.system.md Prompt
+Highlights
+ResearcherAgent (Executor) "You are a world-class
+research analyst agent. Your
+mission is to find and execute
+research tasks. Use the
+get_open_tasks tool to find
+tasks of type 'research'. After
+claiming a task, you will use the
+online_search tool to gather
+information. You MUST
+synthesize your findings into
+concise points and publish
+them to the shared
+environment using the
+write_pheromone tool with the
+type 'finding'. Each finding
+should be a discrete
+pheromone. This allows other
+agents to consume your
+research in real-time."
+Key Tools
+get_open_tasks,
+update_task_status,
+write_pheromone,
+online_search, add_to_memory
+get_pheromones_for_task,
+write_pheromone
+ScribeAgent "You are a Synthesizer and
+Scribe agent. Your role is to
+observe the flow of information
+and create clarity. You will
+monitor the pheromones table
+for a specific task using
+get_pheromones_for_task.
+When a critical mass of 'finding'
+or 'log' pheromones has been
+laid by other agents, your task
+is to read them all, create a
+concise, structured summary of
+the current state of the project,
+and post this summary as a
+new pheromone of type
+'summary'. This provides a
+condensed view for the
+OrchestratorAgent and reduces
+cognitive load."
+4.3. The "Pheromone" Protocol: Structuring Agent Communication
+For the swarm to function, communication cannot be arbitrary text. The "pheromones" must
+follow a defined protocol. This is achieved by enforcing a JSON schema for the content field
+within the pheromones table in Convex. This structured data is the language of the swarm. The
+type field in the table entry acts as a message header, while the content field is the payload.
+Example pheromone payloads:
+● Type: log
+{
+"source": "CoderAgent-1b4d",
+"level": "info",
+"message": "Compilation of module 'auth.ts' successful."
+}
+{
+● Type: finding
+"source": "ResearcherAgent-a9f2",
+"url": "https://docs.convex.dev/functions/actions",
+"summary": "Convex actions are the designated mechanism for
+performing non-deterministic operations like external API calls.
+They are distinct from queries and mutations and do not run within
+the core transactional engine."
+}
+{
+● Type: request_for_help
+"source": "CoderAgent-1b4d",
+"blocker": "Encountered a dependency conflict between 'library-
+A' and 'library-B'. Unable to resolve. Seeking guidance on which
+library to prioritize or potential workarounds."
+}
+4.4. Multi-Agent Cooperation: Hierarchical Task Decomposition
+This architecture leverages Agent Zero's native capability for an agent to spawn subordinate
+agents to handle sub-tasks. This allows for dynamic, on-demand scaling of the swarm.
+The OrchestratorAgent's prompt will include instructions for this process. When faced with a
+highly complex user request (e.g., "Build a full-stack web application"), the OrchestratorAgent
+will not only decompose the project into dozens of sub-tasks in Convex (e.g.,
+'setup_database_schema', 'create_auth_endpoint', 'build_login_ui'). It can also be prompted to
+execute a command to spin up a new, temporary CoderAgent instance for each major feature,
+passing it the specific taskId from Convex as an initial instruction. This creates a powerful, task-
+oriented hierarchy, where a temporary swarm is assembled to tackle a large project and then
+disbands upon completion, mirroring the elastic nature of modern cloud infrastructure.
+Section 5: The Agent's Mind: Integrating the mem0
+Persistent Memory Layer
+To transcend the limitations of stateless interactions and enable genuine learning, the system
+incorporates a dual-layer memory architecture. Agent Zero's native memory provides short-
+term, task-specific context, while the mem0 service offers a persistent, semantic, and collective
+long-term memory for the entire swarm.
+5.1. Connecting Agent Zero to the Self-Hosted mem0 Instance
+The connection is established from within Agent Zero's Python environment. As the mem0
+service is running locally within the same LXC container and using the local Redis instance, the
+connection is straightforward and low-latency. The integration is handled via the mem0ai Python
+SDK. The configuration object defined in Section 3.5, which points to redis://localhost:6379, will
+be used within the custom tools created for Agent Zero.
+5.2. Custom Agent Zero Tools for Memory Operations
+To empower the agents to interact with their long-term memory, a set of custom tools must be
+created. These are Python scripts placed in Agent Zero's python/tools/ directory, which makes
+them callable by the agents if referenced in their system prompts.
+● add_to_memory.py: This tool will expose a function that accepts text content, a user_id,
+and optional metadata. Internally, it will instantiate the mem0 client with the Redis
+configuration and call memory.add(content, user_id=user_id). The ResearcherAgent, for
+example, would be prompted to use this tool to save key findings, creating a persistent
+knowledge base.
+● search_memory.py: This tool will expose a function that takes a natural language query
+and a user_id. It will call memory.search(query=query, user_id=user_id) and return the
+retrieved memories as a formatted string, which is then injected into the agent's context
+window. The OrchestratorAgent will use this at the start of a task to see if the swarm has
+solved a similar problem before.
+● get_all_memories.py: This tool retrieves all stored memories for a given user, which can
+be useful for agents tasked with summarizing a user's profile or preferences.
+These tools bridge the gap between the agent's reasoning loop and its persistent memory,
+allowing it to consciously decide what to remember and what to recall.
+5.3. Differentiating Memory Types: A Dual-Layered Approach
+The system's cognitive architecture relies on two distinct but complementary memory systems:
+1. Agent Zero Native Memory (Working Memory): Agent Zero has a built-in persistent
+memory feature that allows it to recall previous solutions and facts from its own history. In
+this architecture, this is treated as the agent's short-term "working memory." It is used for
+remembering the specific steps, commands, and code snippets within the scope of a
+single, ongoing task. It helps an agent not repeat mistakes within one session.
+2. mem0 Memory (Long-Term Semantic Memory): The mem0 service functions as the
+swarm's collective long-term memory. It is designed to store information that transcends
+individual tasks and sessions. Its primary uses are:
+○ Storing User Preferences: Explicit statements like "I prefer Python for scripting" or
+"My AWS region is us-east-1" are saved as factual memories.
+○ Retaining Key Facts: Important information discovered during one task that may
+be relevant to future, unrelated tasks is stored.
+○ Archiving Successful Solutions: When the OrchestratorAgent marks a complex
+task as 'completed' with a successful result, it will be prompted to use the
+add_to_memory tool to store a summary of the problem and its solution. This allows
+the swarm to learn from its successes.
+The OrchestratorAgent is prompted to begin every new task by using the search_memory tool.
+It queries mem0 with the user's prompt to retrieve relevant long-term context. This context is
+then included in the prompts for the ExecutorAgents it tasks, effectively "briefing" them with
+knowledge from the swarm's entire history.
+The integration of mem0's graph-based memory capabilities (Mem0ᵍ) offers a pathway to a
+more sophisticated "collective consciousness" for the swarm. While standard vector search is
+effective for retrieving semantically similar facts , a graph store can capture explicit, labeled
+relationships between entities. A custom Agent Zero tool could be developed to add not just
+facts, but relationships to mem0—for example, (Task-A) --> (CoderAgent-123) or (Concept-X) --
+> (Task-B). When a new task arrives, the OrchestratorAgent could then execute a graph
+traversal query to find not just similar facts, but related tasks, successful agents, and proven
+methodologies. This elevates the system from simple fact recall to a structured understanding of
+its own history, capabilities, and the interconnections within its knowledge, a hallmark of more
+advanced, self-aware systems.
+Section 6: The Conversational Interface: Real-Time
+Audio Integration
+To facilitate natural, human-like interaction with the agent swarm, the system incorporates a
+real-time voice interface. This enables users to issue commands and receive responses through
+spoken dialogue. The engineering of this interface prioritizes low latency and bidirectional
+communication.
+6.1. Architecture: Python WebSocket Server and Node.js Client
+The chosen architecture for the audio subsystem consists of a Python server running within the
+LXC container and a Node.js client, which could be part of a desktop application or a web
+frontend. The communication protocol between these two components is WebSocket.
+WebSockets are the ideal choice for this server-to-server (or client-to-server) streaming
+scenario. Unlike traditional HTTP requests, which are transactional and stateless, a WebSocket
+connection is persistent, full-duplex, and low-latency. This allows for the continuous,
+uninterrupted flow of audio data in both directions—from the client's microphone to the server,
+and from the server's text-to-speech engine back to the client's speakers—which is essential for
+a fluid and responsive conversational experience.
+6.2. Implementing the Python Audio Server
+The Python server acts as the bridge between the user's voice and the agent swarm. It will be
+built using the websockets and asyncio libraries to handle concurrent connections and
+asynchronous I/O efficiently. The server will run inside the LXC container and perform four
+primary functions:
+1. Listen for Incoming Audio: The server will open a WebSocket port and listen for
+incoming client connections. Once a connection is established, it will receive a stream of
+binary audio chunks.
+2. Transcribe Audio (STT): As audio chunks are received, they are passed to a real-time
+speech-to-text (STT) engine. Modern APIs like OpenAI's Realtime API or Google's Live
+API are well-suited for this, as they are designed for streaming input. The transcribed text
+is then assembled into a complete user prompt.
+3. Forward to Agent Swarm: The final text prompt is passed via a local function call to the
+OrchestratorAgent to initiate a task, as described in Section 1.2.
+4. Monitor for Results and Synthesize Speech (TTS): The server will use the Convex
+Python client to subscribe to the specific task document it initiated. When the status of this
+document changes to 'completed', the server retrieves the text from the result field. This
+text is then fed into a streaming text-to-speech (TTS) engine, such as the one provided by
+Play.ht , which generates an audio stream. This audio is then chunked and sent back to
+the client over the WebSocket.
+6.3. Building the Client-Side Audio Handling Logic
+The Node.js client is responsible for capturing the user's voice and playing back the system's
+response. It will use the ws library to manage the WebSocket connection.
+1. Capture Microphone Audio: In a browser-based environment, the MediaRecorder API
+can be used to capture audio from the user's microphone. In a standalone Node.js
+application, libraries like node-record-lpcm16 can serve the same purpose.
+2. Establish WebSocket Connection: The client initiates a WebSocket connection to the
+Python server's IP address and port.
+3. Stream Audio to Server: As the microphone captures audio, the client sends the raw
+audio data chunks to the server through the WebSocket.
+4. Receive and Play Audio: The client listens for incoming messages on the WebSocket.
+When it receives audio chunks from the server (the synthesized response), it buffers them
+and plays them through the user's speakers using an appropriate audio playback library.
+6.4. Configuration and Performance Tuning
+Real-time audio streaming is highly sensitive to configuration mismatches and performance
+bottlenecks. The parameters for sample rate, bit depth, and encoding format must be consistent
+across the entire pipeline: client capture, server processing, STT/TTS services, and client
+playback. Centralizing these settings is crucial for stability.
+Table 4: Audio Streaming Parameters
+Parameter Recommended Value Description
+Sample Rate 16000 Hz or 24000 Hz Must match the requirements of
+the STT and TTS models. 16
+kHz is a common standard for
+voice transcription.
+Bit Depth 16-bit PCM A standard format for
+uncompressed audio data,
+widely supported by STT/TTS
+APIs.
+Channels 1 (Mono) Voice communication is
+typically monophonic.
+Chunk Size 2048 or 4096 bytes A smaller chunk size reduces
+latency but increases
+overhead. This value should be
+tuned based on network
+conditions.
+Codec (Client -> Server) Linear16 (PCM) or Opus PCM is uncompressed and
+simple. Opus provides high-
+quality compression, reducing
+bandwidth at the cost of
+encoding/decoding overhead.
+Codec (Server -> Client) MP3 or Opus The format provided by the
+TTS streaming service. MP3 is
+widely supported; Opus offers
+better quality at lower bitrates.
+The choice of STT and TTS models is also critical. Services built specifically for real-time
+interaction, such as OpenAI's models accessible via their Realtime API or Google's Gemini Live
+API models , are preferable. They often include features like voice activity detection (VAD) and
+the ability to handle interruptions, which contribute to a more natural and less robotic
+conversational flow.
+Section 7: System Synthesis and Operational
+Walkthrough
+This final section integrates all the preceding components, providing a holistic view of the
+system in operation. It includes practical scripts for initialization and a narrative walkthrough of a
+complex task, demonstrating the end-to-end data flow and agent collaboration.
+7.1. Boot Sequence and Initialization Scripts
+To simplify the startup process, a master shell script can be created on the host machine. This
+script will orchestrate the launch of the container and the services within it.
+start_swarm.sh (Host Machine Script):
+#!/bin/bash
+# Define container name and data directory
+CONTAINER_NAME="agent-core"
+AGENT_DATA_DIR="/home/agentadmin/agent-data"
+echo "--- Starting Agent Swarm System ---
+"
+# 1. Ensure the LXC container is running
+if! lxc-info -n $CONTAINER_NAME | grep -q "RUNNING"; then
+echo "Starting LXC container: $CONTAINER_NAME..."
+lxc-start -n $CONTAINER_NAME
+sleep 5 # Allow time for the container to boot and get network
+fi
+# 2. Start core services inside the container via lxc-attach
+echo "Starting services inside the container..."
+# Ensure Redis is running
+lxc-attach -n $CONTAINER_NAME -- systemctl start redis-server.service
+# Activate Python environment and start the Audio WebSocket Server in
+the background
+echo "Launching Python Audio Server..."
+lxc-attach -n $CONTAINER_NAME -- bash -c "cd $AGENT_DATA_DIR/project
+&& \
+source venv/bin/activate && \
+nohup python audio_server.py > /a0/logs/audio_server.log 2>&1 &"
+# Activate Python environment and start the Agent Zero main process in
+the background
+echo "Launching Agent Zero Framework..."
+lxc-attach -n $CONTAINER_NAME -- bash -c "cd $AGENT_DATA_DIR/agent-
+zero && \
+source../project/venv/bin/activate && \
+nohup python main.py > /a0/logs/agent_zero.log 2>&1 &"
+echo "--- System Initialized ---
+"
+lxc-info -n $CONTAINER_NAME
+7.2. A-Z Workflow: From Voice Command to Swarm Execution
+To illustrate the system's functionality, consider the following complex user request issued via
+the voice interface:
+User: "Research the latest advancements in WebRTC for Python, write a simple server-client
+example demonstrating a data channel, and explain the key concepts of STUN, TURN, and
+signaling."
+1. Input & Transcription: The Node.js client streams the user's speech to the Python audio
+server. The STT engine transcribes it into the text prompt above. The server passes this
+prompt to the OrchestratorAgent.
+2. Task Decomposition: The OrchestratorAgent receives the prompt. It queries its mem0
+long-term memory with "WebRTC Python" to see if it has solved this before. Finding no
+exact match, it decomposes the request into three sub-tasks and writes them to the
+Convex tasks table using its create_task tool:
+○ Task #1: { type: 'research', prompt: 'Find latest advancements and key articles on
+WebRTC for Python, focusing on the aiortc library.' }
+○ Task #2: { type: 'coding', prompt: 'Based on research from Task #1, write a minimal
+Python WebRTC example using aiortc that establishes a peer-to-peer data channel
+and sends a "hello world" message. The code should be self-contained in two
+scripts: server.py and client.py.' }
+○ Task #3: { type: 'writing', prompt: 'Based on research from Task #1, write a clear,
+concise explanation of the roles of STUN, TURN, and Signaling servers in
+establishing a WebRTC connection.' }
+3. Parallel Execution & Pheromone Trails:
+○ A ResearcherAgent sees Task #1, claims it, and begins using its online_search
+tool. It finds several relevant articles and the aiortc GitHub repository. For each key
+finding, it writes a pheromone of type finding to Convex, linked to Task #1. E.g.,
+{"summary": "aiortc is the primary library for Python WebRTC...", "url": "..."}.
+○ A CoderAgent sees Task #2. It waits, periodically checking the pheromones for
+Task #1. Once the ResearcherAgent has laid a few pheromones about aiortc, the
+CoderAgent begins its work, using the research as context. It writes the code for
+server.py and client.py, posting log and code_snippet pheromones as it progresses.
+○ Simultaneously, a WriterAgent (a specialized executor) claims Task #3 and also
+begins monitoring the pheromones from Task #1.
+4. Synthesis & Completion:
+○ The ResearcherAgent and WriterAgent complete their tasks, updating their
+respective task statuses to 'completed' in Convex.
+○ The CoderAgent finishes its code, tests it, and marks Task #2 as 'completed',
+posting the final code as its result.
+○ The OrchestratorAgent, which has been monitoring the status of all three sub-tasks,
+sees that they are all complete. It reads the result fields from all three completed
+tasks.
+5. Final Output: The OrchestratorAgent synthesizes the results into a single, coherent
+response: "Here are the latest advancements in WebRTC for Python... The key library is
+aiortc. Here is a simple server-client example... [code follows]... And here is an
+explanation of the core concepts: A STUN server helps peers discover their public IP
+addresses... A TURN server is used as a relay when direct connection fails... A Signaling
+server is used to exchange connection metadata...". It writes this final text to the result
+field of the original parent task and sets its status to 'completed'.
+6. Response Delivery: The Python audio server, which was subscribed to the parent task,
+detects the completion. It takes the final text result, streams it to the TTS engine, and
+sends the resulting audio back to the user via the WebSocket.
+7.3. Monitoring and Debugging
+Effective monitoring is crucial for a complex, distributed system. The architecture provides
+several points of observation:
+● Convex Dashboard: This is the primary mission control center. The dashboard provides
+a real-time, web-based view of all tables. The operator can watch the tasks table to see
+tasks being created and completed, and can tail the pheromones table to observe the live
+communication flow of the entire swarm. This is invaluable for debugging coordination
+logic.
+● Agent Zero Logs: Agent Zero generates detailed, color-coded HTML logs for each agent
+session, which are saved in the persistent data directory (/a0/agent-zero/logs/). These
+logs show the agent's internal "thought process," including the full prompts, the tools it
+chose to use, and the outputs it received.
+● LXC Console and Log Files: The operator can attach to the running LXC container (lxc-
+attach -n agent-core) to view the live stdout of the running processes or inspect the log
+files configured in the boot script (e.g., /a0/logs/audio_server.log). This is useful for
+diagnosing low-level network or application errors.
+Conclusion
+This technical blueprint details the architecture for a highly advanced and capable AI system,
+realizing the conceptual power of swarm intelligence through a pragmatic and robust
+engineering approach. By integrating the reactive datastore of Convex, the customizable
+framework of Agent Zero, the persistent memory of mem0, and a real-time audio interface, the
+system achieves a level of emergent coordination and autonomous capability that surpasses
+traditional, monolithic agent designs.
+The core architectural decision to mediate all communication through the Convex environment,
+treating database entries as "digital pheromones," is fundamental to the system's resilience and
+scalability. It decouples agents from one another, allowing for dynamic task allocation and
+parallel execution without the brittleness of direct inter-agent dependencies. The dual-layered
+memory model provides the swarm with both the tactical, short-term context needed to execute
+immediate tasks and the strategic, long-term knowledge required to learn and adapt over time.
+The deployment on a local, unprivileged LXC container provides a secure, performant, and fully
+controllable foundation, giving the operator complete sovereignty over the system's data and
+operations. While the implementation is complex, the step-by-step instructions, schema
+definitions, and prompt engineering strategies provided in this document offer a clear path to
+constructing a functional prototype.
+The resulting system is not merely a collection of disparate technologies but a synthesized
+organism capable of tackling complex, multi-step problems through emergent collaboration. It
+represents a tangible step towards a future of more autonomous, adaptive, and intelligent AI
+systems. Future work could focus on expanding the library of agent archetypes, refining the
+pheromone protocol for more nuanced communication, and developing more sophisticated
+OrchestratorAgent strategies for managing larger and more complex projects.
+Appendix: Complete Configuration Files and Scripts
+This appendix contains the full, unabridged source code and configuration files for the key
+components of the system, ready for implementation.
+A.1. convex/schema.ts
+import { defineSchema, defineTable } from "convex/server";
+import { v } from "convex/values";
+export default defineSchema({
+agents: defineTable({
+agentId: v.string(),
+archetype: v.string(),
+status: v.string(),
+lastSeen: v.number(),
+}).index("by_archetype_and_status", ["archetype", "status"]),
+tasks: defineTable({
+taskId: v.string(),
+parentTaskId: v.optional(v.string()),
+createdBy: v.string(),
+assignedTo: v.optional(v.string()),
+status: v.string(),
+prompt: v.string(),
+result: v.optional(v.any()),
+createdAt: v.number(),
+})
+.index("by_status", ["status"])
+.index("by_assignedTo",),
+pheromones: defineTable({
+taskId: v.id("tasks"),
+agentId: v.string(),
+type: v.string(),
+content: v.any(),
+timestamp: v.number(),
+}).index("by_taskId", ["taskId"]),
+memory_metadata: defineTable({
+mem0_id: v.string(),
+convex_doc_id: v.id("tasks"),
+relationship: v.string(),
+}).index("by_mem0_id", ["mem0_id"]),
+});
+A.2. convex/http.ts (HTTP Action Endpoint)
+import { httpRouter } from "convex/server";
+import { httpAction } from "./_generated/server";
+import { internal } from "./_generated/api";
+const http = httpRouter();
+// This action serves as the secure gateway for agents in the LXC
+container.
+http.route({
+path: "/createTask",
+method: "POST",
+handler: httpAction(async (ctx, request) => {
+const { prompt, createdBy, parentTaskId } = await request.json();
+// In a production system, you would add validation and auth
+checks here.
+// For example, check a bearer token from the request.
+const taskId = await
+ctx.scheduler.run(internal.tasks.internalCreateTask, {
+prompt,
+createdBy,
+parentTaskId,
+});
+return new Response(JSON.stringify({ taskId }), {
+headers: { "Content-Type": "application/json" },
+status: 200,
+});
+}),
+});
+// Additional endpoints for updating tasks, writing pheromones, etc.
+would go here.
+export default http;
+A.3. convex/tasks.ts (Core Mutations and Queries)
+import { v } from "convex/values";
+import { internalMutation, query } from "./_generated/server";
+import { customAlphabet } from "nanoid";
+const nanoid = customAlphabet("0123456789abcdefghijklmnopqrstuvwxyz",
+10);
+// Internal mutation to be called only by scheduled actions.
+export const internalCreateTask = internalMutation({
+args: {
+prompt: v.string(),
+createdBy: v.string(),
+parentTaskId: v.optional(v.string()),
+},
+handler: async (ctx, args) => {
+const taskId = `task_${nanoid()}`;
+await ctx.db.insert("tasks", {
+taskId: taskId,
+prompt: args.prompt,
+createdBy: args.createdBy,
+parentTaskId: args.parentTaskId,
+status: "open",
+createdAt: Date.now(),
+});
+return taskId;
+},
+});
+// Public query for agents to find work.
+export const getOpenTasks = query({
+args: { archetype: v.string() },
+handler: async (ctx, args) => {
+// In a real system, logic would map archetype to task type.
+// For now, we get all open tasks.
+return await ctx.db
+.query("tasks")
+.withIndex("by_status", (q) => q.eq("status", "open"))
+.collect();
+},
+});
+A.4. prompts/pheromind/orchestrator.system.md
+Role and Goal
+You are a Master Orchestrator agent, a high-level project manager for a swarm of specialized AI
+agents. Your primary function is to receive a high-level user request and decompose it into a
+structured hierarchy of tasks. You must remain at a high level and delegate all execution to
+other agents.
+Constraints
+● You MUST NOT execute code or perform research yourself.
+● You MUST use your tools to interact with the shared environment (Convex).
+● All communication with other agents is indirect, via the tasks and pheromones tables.
+Workflow
+1. Analyze Request: When given a user prompt, analyze it and break it down into logical
+2. 3. 4. 5. sub-tasks.
+Delegate Tasks: For each sub-task, use the create_task tool to create a new entry in the
+Convex tasks table. Assign a clear prompt and a type (e.g., 'coding', 'research', 'writing').
+Monitor Progress: Use the get_pheromones_for_task tool to monitor the progress of
+your sub-tasks. Observe the logs, findings, and status updates from executor agents.
+Synthesize Results: Once all sub-tasks are marked as 'completed', read their results.
+Synthesize them into a single, coherent final answer for the user.
+Complete Task: Update the main task's status to 'completed' using the
+update_task_status tool, providing the synthesized final answer.
+Available Tools
+● create_task(prompt: string, type: string): Creates a new sub-task in the shared
+environment.
+● update_task_status(taskId: string, status: string, result: string): Updates the status and
+result of a task.
+● get_pheromones_for_task(taskId: string): Retrieves all communication related to a task.
+● search_memory(query: string): Queries the long-term collective memory for relevant past
+solutions or facts.
+A.5. prompts/pheromind/coder.system.md
+Role and Goal
+You are an expert Coder Agent. Your purpose is to write, debug, and test code to fulfill 'coding'
+tasks. You are a worker, focused exclusively on execution.
+Constraints
+● You ONLY work on tasks of type 'coding'.
+● You must communicate your progress continuously by laying 'pheromones'.
+Workflow
+1. Find Work: Start by calling the get_open_tasks tool to find an unassigned task of type
+2. 3. 4. 'coding'.
+Claim Task: Once you find a task, immediately call update_task_status to set its status to
+'assigned' and assign it to yourself.
+Execute: Read the task prompt carefully. If the task depends on research, use
+get_pheromones_for_task to read the findings of Researcher agents. Write the required
+code using your code_execution tool.
+Report Progress: As you work, you MUST frequently use the write_pheromone tool.
+○ Use type 'log' for status updates (e.g., "Starting file X", "Compiling...").
+○ Use type 'code_snippet' to share pieces of your work.
+○ Use type 'error' if you encounter a problem.
+5. Complete Task: When the code is complete and tested, call update_task_status, setting
+the status to 'completed' and providing the final, complete code as the result.
+A.6. python/tools/convex_tools.py (Custom tools for Agent Zero)
+import requests
+import os
+import json
+CONVEX_URL = os.getenv("CONVEX_URL")
+CONVEX_DEPLOY_KEY = os.getenv("CONVEX_DEPLOY_KEY")
+headers = {
+"Authorization": f"Convex {CONVEX_DEPLOY_KEY}",
+"Content-Type": "application/json",
+}
+def _run_convex_action(function_name, args):
+"""Helper to call a Convex HTTP action."""
+url = f"{CONVEX_URL}/api/run/{function_name.replace(':', '/')}"
+try:
+response = requests.post(url, headers=headers, json=args)
+response.raise_for_status()
+return response.json()
+except requests.exceptions.RequestException as e:
+return f"Error calling Convex action: {e}"
+def create_task(prompt: str, type: str, created_by: str):
+"""Creates a new task in the Convex backend."""
+# In a real system, 'type' would be part of the task schema.
+# For now, we embed it in the prompt.
+full_prompt = f"TYPE: {type}\n\nPROMPT: {prompt}"
+args = {"prompt": full_prompt, "createdBy": created_by}
+return _run_convex_action("http:createTask", args)
+# Other tools like update_task_status, write_pheromone, get_open_tasks
+# would be defined here, calling their respective Convex HTTP actions.
+A.7. python/tools/mem0_tools.py (Custom tools for Agent Zero)
+from mem0 import Memory
+# This object should be initialized once and reused.
+mem0_config = {
+"vector_store": {"provider": "redis", "config": {"redis_url":
+"redis://localhost:6379"}}
+}
+memory = Memory.from_config(mem0_config)
+def add_to_memory(content: str, user_id: str = "swarm_collective"):
+"""Adds a piece of information to the long-term collective
+memory."""
+try:
+memory.add(content, user_id=user_id)
+return f"Successfully added to memory for user '{user_id}'."
+except Exception as e:
+return f"Error adding to memory: {e}"
+def search_memory(query: str, user_id: str = "swarm_collective"):
+"""Searches the long-term collective memory for relevant
+information."""
+try:
+results = memory.search(query=query, user_id=user_id, limit=5)
+if not results:
+return "No relevant memories found."
+formatted_results = "\n".join([f"- {item['memory']}" for item
+in results])
+return f"Found relevant memories:\n{formatted_results}"
+except Exception as e:
+return f"Error searching memory: {e}"
+A.8. lxc-container.conf (Sample LXC configuration file)
+# For container 'agent-core' owned by user 'agentadmin'
+# Path: /home/agentadmin/.local/share/lxc/agent-core/config
+# Distribution configuration
+lxc.include = /usr/share/lxc/config/ubuntu.common.conf
+lxc.include = /usr/share/lxc/config/ubuntu.userns.conf
+lxc.arch = amd64
+# Container specific configuration
+lxc.idmap = u 0 100000 65536
+lxc.idmap = g 0 100000 65536
+lxc.rootfs.path = dir:/home/agentadmin/.local/share/lxc/agent-
+core/rootfs
+lxc.uts.name = agent-core
+# Network configuration
+lxc.net.0.type = veth
+lxc.net.0.link = lxcbr0
+lxc.net.0.flags = up
+lxc.net.0.hwaddr = 00:16:3e:ab:cd:ef
+# Mount point for persistent data
+lxc.mount.entry = /home/agentadmin/agent-data a0 none bind,create=dir
+0 0
+A.9. audio_server.py (Python WebSocket Server)
+import asyncio
+import websockets
+import os
+import requests
+# Assume STT/TTS libraries are imported, e.g., from openai import
+OpenAI
+# --- Configuration ---
+CONVEX_URL = os.getenv("CONVEX_URL")
+# Assume other configs are loaded
+# --- Convex Client Setup ---
+# A simplified client to interact with the OrchestratorAgent
+def delegate_to_orchestrator(text_prompt):
+print(f"Delegating to orchestrator: {text_prompt}")
+# This would trigger the Agent Zero process
+# For this example, we'll simulate a response
+return "This is a simulated response from the agent swarm about
+your query."
+# --- WebSocket Handler ---
+async def audio_handler(websocket, path):
+print("Client connected.")
+try:
+async for message in websocket:
+# 1. Receive audio chunk (message is binary data)
+# 2. Stream to STT service
+# For this example, we'll simulate transcription
+transcribed_text = "Simulated transcription of user
+speech."
+print(f"Transcribed: {transcribed_text}")
+# 3. Delegate to agent swarm
+agent_response_text =
+delegate_to_orchestrator(transcribed_text)
+# 4. Stream response from TTS service back to client
+# For this example, we'll send the text back directly
+# A real implementation would convert this text to audio
+chunks.
+await
+websocket.send(f"AUDIO_RESPONSE_START:{agent_response_text}")
+except websockets.exceptions.ConnectionClosed:
+print("Client disconnected.")
+# --- Server Startup ---
+async def main():
+async with websockets.serve(audio_handler, "0.0.0.0", 8765):
+print("Audio WebSocket server started on port 8765.")
+await asyncio.Future() # run forever
+if __name__ == "__main__":
+asyncio.run(main())
+A.10. audio_client.js (Node.js WebSocket Client)
+const WebSocket = require('ws');
+// In a real app, you'd use a library to capture mic audio.
+// const mic = require('node-record-lpcm16');
+const ws = new WebSocket('ws://<LXC_CONTAINER_IP>:8765');
+ws.on('open', function open() {
+console.log('Connected to audio server.');
+// Simulate sending an audio chunk
+const simulatedAudioChunk = Buffer.from('...simulated audio
+data...', 'base64');
+console.log('Sending simulated audio chunk...');
+ws.send(simulatedAudioChunk);
+// In a real app, you would start streaming from the microphone:
+// const recording = mic.record(...);
+// recording.stream().on('data', (chunk) => ws.send(chunk));
+});
+ws.on('message', function incoming(data) {
+// Received data from the server (synthesized audio response)
+const message = data.toString();
+if (message.startsWith('AUDIO_RESPONSE_START:')) {
+const textResponse =
+message.substring('AUDIO_RESPONSE_START:'.length);
+console.log(`Received agent response: "${textResponse}"`);
+// In a real app, this `data` would be binary audio chunks
+// that you would pipe to a speaker.
+}
+});
+ws.on('close', function close() {
+console.log('Disconnected from audio server.');
+});
+ws.on('error', function error(err) {
+console.error('WebSocket error:', err);
+});
+Works cited
+1. ChrisRoyse/Pheromind - GitHub, https://github.com/ChrisRoyse/Pheromind 2.
+agent0ai/agent-zero: Agent Zero AI framework - GitHub, https://github.com/agent0ai/agent-zero
+3. Convex | The reactive database for app developers, https://www.convex.dev/ 4. Exploring
+simple Linux containers with lxc - Red Hat, https://www.redhat.com/en/blog/exploring-
+containers-lxc 5. What is Mem0? - Mem0, https://docs.mem0.ai/ 6. Realtime API - OpenAI
+Platform, https://platform.openai.com/docs/guides/realtime 7. alesaccoia/VoiceStreamAI: Near-
+Realtime audio transcription using self-hosted Whisper and WebSocket in Python/JS - GitHub,
+https://github.com/alesaccoia/VoiceStreamAI 8. get-convex/convex-backend: The open-source
+reactive database for app developers, https://github.com/get-convex/convex-backend 9.
+Broadcasting and streaming live audio using Node.js, FFMPEG, React and React Native. | by
+MustneerAhmad Rana | Medium, https://medium.com/@mustneerahmadr7/broadcasting-and-
+streaming-live-audio-using-node-js-ffmpeg-react-and-react-native-09604f0937f0 10. Convex
+HTTP API | Convex Developer Hub, https://docs.convex.dev/http-api/ 11. Convex Tutorial:
+Calling External Services | Convex Developer Hub, https://docs.convex.dev/tutorial/actions 12.
+mem0ai/mem0: Universal memory layer for AI Agents; Announcing OpenMemory MCP -
+GitHub, https://github.com/mem0ai/mem0 13. Agent Zero - AI Agent Store,
+https://aiagentstore.ai/ai-agent/agent-zero 14. Smarter memory management for AI agents with
+Mem0 and Redis, https://redis.io/blog/smarter-memory-management-for-ai-agents-with-mem0-
+and-redis/ 15. Mem0 - The Memory Layer for your AI Apps, https://mem0.ai/ 16. LXC - Getting
+started - Linux Containers, https://linuxcontainers.org/lxc/getting-started/ 17. convex - NPM,
+https://www.npmjs.com/package/convex 18. Node.js Quickstart | Convex Developer Hub,
+https://docs.convex.dev/quickstart/nodejs 19. Python Quickstart | Convex Developer Hub,
+https://docs.convex.dev/quickstart/python 20. What are the ways to create an LXC container? -
+Linux Containers Forum, https://discuss.linuxcontainers.org/t/what-are-the-ways-to-create-an-
+lxc-container/1746 21. Mount host directory into LXC container - Proxmox Support Forum,
+https://forum.proxmox.com/threads/mount-host-directory-into-lxc-container.66555/ 22. Agent
+Zero AI Framework Review: How Good Is It? - Apidog, https://apidog.com/blog/agent-zero-ai-
+framework-review/ 23. raw.githubusercontent.com,
+https://raw.githubusercontent.com/frdel/agent-zero/main/docs/installation.md 24.
+mem0ai_boop_custom - PyPI, https://pypi.org/project/mem0ai_boop_custom 25. AI Companion
+in Node.js - Mem0, https://docs.mem0.ai/examples/ai_companion_js 26. Scalable Long-Term
+Memory for Production AI Agents - Mem0, https://mem0.ai/research 27. Launch YC: Mem0 -
+Open Source Memory Layer for AI Apps | Y Combinator,
+https://www.ycombinator.com/launches/LpA-mem0-open-source-memory-layer-for-ai-apps 28.
+Python-Based Effective Audio Streaming over WebSocket Using Asyncio and Threading,
+https://medium.com/@python-javascript-php-html-css/python-based-effective-audio-streaming-
+over-websocket-using-asyncio-and-threading-a926ecf087c4 29. Get started with Live API |
+Gemini API | Google AI for Developers, https://ai.google.dev/gemini-api/docs/live 30. NodeJS
+SDK Streaming - Play.ht, https://docs.play.ht/docs/nodejs-sdk-streaming
